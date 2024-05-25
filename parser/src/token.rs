@@ -1,3 +1,4 @@
+#[derive(Debug, PartialEq)]
 pub enum Token {
     BeginObject,
     EndObject,
@@ -9,4 +10,15 @@ pub enum Token {
     Number(f64),
     Null,
     Boolean(bool),
+    WhiteSpace,
+    Eof
+}
+
+pub enum BuildState {
+    Object,
+    Array,
+    String,
+    Number,
+    Boolean,
+    Null,
 }

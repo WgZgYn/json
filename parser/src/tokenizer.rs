@@ -1,38 +1,41 @@
-use std::str::Chars;
+#![allow(unused)]
+
 use crate::error::ReadError;
 use crate::r#trait::Reader;
 use crate::reader::{ByteReader, CharReader};
 use crate::token::Token;
+use std::str::Chars;
 
-pub struct TokenReader<'a> {
+pub struct ByteTokenizer<'a> {
     reader: ByteReader<'a>,
     pub tokens: Vec<Token>,
 }
 
-impl<'a> TokenReader<'a> {
+impl<'a> ByteTokenizer<'a> {
     pub fn new(buffer: &'a str) -> Self {
-        Self { reader: ByteReader::new(buffer.as_bytes()), tokens: Vec::new() }
+        Self {
+            reader: ByteReader::new(buffer.as_bytes()),
+            tokens: Vec::new(),
+        }
     }
     pub fn read_token(&mut self) -> Result<Token, ReadError> {
         let char = self.reader.peek();
         match char {
-            Ok(v) => {
-                match v {
-                    b'{' | b'}' | b':' | b',' | b'[' | b']' => self.read_char_token(),
-                    b'"' => self.read_string(),
-                    b'n' => self.read_null(),
-                    b't' | b'f' => self.read_boolean(),
-                    c if (c <= b'9' && c >= b'0') || c == b'-' => self.read_number(),
-                    c => {
-                        let _ = self.reader.next();
-                        if c.is_ascii_whitespace() {
-                            Ok(Token::WhiteSpace)
-                        } else {
-                            Err(ReadError::IllegalByte(c))
-                        }
+            Ok(v) => match v {
+                b'{' | b'}' | b':' | b',' | b'[' | b']' => self.read_char_token(),
+                b'"' => self.read_string(),
+                b'n' => self.read_null(),
+                b't' | b'f' => self.read_boolean(),
+                c if (c <= b'9' && c >= b'0') || c == b'-' => self.read_number(),
+                c => {
+                    let _ = self.reader.next();
+                    if c.is_ascii_whitespace() {
+                        Ok(Token::WhiteSpace)
+                    } else {
+                        Err(ReadError::IllegalByte(c))
                     }
                 }
-            }
+            },
             Err(ReadError::Eof) => Ok(Token::Eof),
             Err(e) => Err(e),
         }
@@ -56,40 +59,38 @@ impl<'a> TokenReader<'a> {
         loop {
             match c {
                 Err(e) => return Err(e),
-                Ok(v) => {
-                    match v {
-                        b'"' => {
-                            if escape {
-                                buffer.push(char::from(v));
-                                escape = false;
+                Ok(v) => match v {
+                    b'"' => {
+                        if escape {
+                            buffer.push(char::from(v));
+                            escape = false;
+                        } else {
+                            if !start {
+                                start = true;
                             } else {
-                                if !start {
-                                    start = true;
-                                } else {
-                                    break;
-                                }
-                            }
-                        }
-                        mut c => {
-                            if escape {
-                                match c {
-                                    b'/' => c = b'/',
-                                    b'\\' => c = b'\\',
-                                    b't' => c = b'\t',
-                                    b'n' => c = b'\n',
-                                    b'r' => c = b'\r',
-                                    _ => (),
-                                }
-                                escape = false;
-                                buffer.push(char::from(c));
-                            } else if c == b'\\' {
-                                escape = true;
-                            } else {
-                                buffer.push(char::from(c));
+                                break;
                             }
                         }
                     }
-                }
+                    mut c => {
+                        if escape {
+                            match c {
+                                b'/' => c = b'/',
+                                b'\\' => c = b'\\',
+                                b't' => c = b'\t',
+                                b'n' => c = b'\n',
+                                b'r' => c = b'\r',
+                                _ => (),
+                            }
+                            escape = false;
+                            buffer.push(char::from(c));
+                        } else if c == b'\\' {
+                            escape = true;
+                        } else {
+                            buffer.push(char::from(c));
+                        }
+                    }
+                },
             }
             c = self.reader.next();
         }
@@ -123,7 +124,9 @@ impl<'a> TokenReader<'a> {
                     }
                 }
                 Ok(b'.') => {
-                    if !point { point = true; }
+                    if !point {
+                        point = true;
+                    }
                 }
                 _ => break,
             }
@@ -137,17 +140,15 @@ impl<'a> TokenReader<'a> {
 
     fn read_char_token(&mut self) -> Result<Token, ReadError> {
         match self.reader.next() {
-            Ok(v) => {
-                match v {
-                    b':' => Ok(Token::Colon),
-                    b',' => Ok(Token::Comma),
-                    b'{' => Ok(Token::BeginObject),
-                    b'}' => Ok(Token::EndObject),
-                    b'[' => Ok(Token::BeginArray),
-                    b']' => Ok(Token::EndArray),
-                    c => Err(ReadError::IllegalByte(c))
-                }
-            }
+            Ok(v) => match v {
+                b':' => Ok(Token::Colon),
+                b',' => Ok(Token::Comma),
+                b'{' => Ok(Token::BeginObject),
+                b'}' => Ok(Token::EndObject),
+                b'[' => Ok(Token::BeginArray),
+                b']' => Ok(Token::EndArray),
+                c => Err(ReadError::IllegalByte(c)),
+            },
             Err(e) => Err(e),
         }
     }
@@ -157,7 +158,9 @@ impl<'a> TokenReader<'a> {
         const FALSE: &[u8; 5] = b"false";
 
         let f = self.reader.peek();
-        if f.is_err() { return Err(f.err().unwrap()); }
+        if f.is_err() {
+            return Err(f.err().unwrap());
+        }
 
         if f.unwrap() == b't' {
             if self.full_match(TRUE) {
@@ -184,7 +187,9 @@ impl<'a> TokenReader<'a> {
         for c in str {
             match self.reader.next() {
                 Ok(v) => {
-                    if v != *c { return false; }
+                    if v != *c {
+                        return false;
+                    }
                 }
                 Err(_) => return false,
             }
@@ -193,7 +198,6 @@ impl<'a> TokenReader<'a> {
     }
 }
 
-
 pub struct Tokenizer<'a> {
     reader: CharReader<'a>,
     pub tokens: Vec<Token>,
@@ -201,29 +205,30 @@ pub struct Tokenizer<'a> {
 
 impl<'a> Tokenizer<'a> {
     pub fn new(buffer: &'a str) -> Self {
-        Self { reader: CharReader::new(buffer.chars()), tokens: Vec::new() }
+        Self {
+            reader: CharReader::new(buffer.chars()),
+            tokens: Vec::new(),
+        }
     }
 
-    pub fn read_token(&mut self) -> Result<Token, ReadError> {
+    fn read_token(&mut self) -> Result<Token, ReadError> {
         let char = self.reader.peek();
         match char {
-            Ok(v) => {
-                match v {
-                    '{' | '}' | ':' | ',' | '[' | ']' => self.read_char_token(),
-                    '"' => self.read_string(),
-                    'n' => self.read_null(),
-                    't' | 'f' => self.read_boolean(),
-                    c if (c <= '9' && c >= '0') || c == '-' => self.read_number(),
-                    c => {
-                        let _ = self.reader.next();
-                        if c.is_ascii_whitespace() {
-                            Ok(Token::WhiteSpace)
-                        } else {
-                            Err(ReadError::IllegalChar(c))
-                        }
+            Ok(v) => match v {
+                '{' | '}' | ':' | ',' | '[' | ']' => self.read_char_token(),
+                '"' => self.read_string(),
+                'n' => self.read_null(),
+                't' | 'f' => self.read_boolean(),
+                c if (c <= '9' && c >= '0') || c == '-' => self.read_number(),
+                c => {
+                    let _ = self.reader.next();
+                    if c.is_ascii_whitespace() {
+                        Ok(Token::WhiteSpace)
+                    } else {
+                        Err(ReadError::IllegalChar(c))
                     }
                 }
-            }
+            },
             Err(ReadError::Eof) => Ok(Token::Eof),
             Err(e) => Err(e),
         }
@@ -232,7 +237,9 @@ impl<'a> Tokenizer<'a> {
     pub fn read_tokens(&mut self) {
         let mut result = self.read_token();
         while result != Ok(Token::Eof) && result != Err(ReadError::Eof) {
-            self.tokens.push(result.unwrap());
+            if result != Ok(Token::WhiteSpace) {
+                self.tokens.push(result.unwrap());
+            }
             result = self.read_token();
         }
     }
@@ -247,40 +254,38 @@ impl<'a> Tokenizer<'a> {
         loop {
             match c {
                 Err(e) => return Err(e),
-                Ok(v) => {
-                    match v {
-                        '"' => {
-                            if escape {
-                                buffer.push(char::from(v));
-                                escape = false;
+                Ok(v) => match v {
+                    '"' => {
+                        if escape {
+                            buffer.push(char::from(v));
+                            escape = false;
+                        } else {
+                            if !start {
+                                start = true;
                             } else {
-                                if !start {
-                                    start = true;
-                                } else {
-                                    break;
-                                }
-                            }
-                        }
-                        mut c => {
-                            if escape {
-                                match c {
-                                    '/' => c = '/',
-                                    '\\' => c = '\\',
-                                    't' => c = '\t',
-                                    'n' => c = '\n',
-                                    'r' => c = '\r',
-                                    _ => (),
-                                }
-                                escape = false;
-                                buffer.push(char::from(c));
-                            } else if c == '\\' {
-                                escape = true;
-                            } else {
-                                buffer.push(char::from(c));
+                                break;
                             }
                         }
                     }
-                }
+                    mut c => {
+                        if escape {
+                            match c {
+                                '/' => c = '/',
+                                '\\' => c = '\\',
+                                't' => c = '\t',
+                                'n' => c = '\n',
+                                'r' => c = '\r',
+                                _ => (),
+                            }
+                            escape = false;
+                            buffer.push(char::from(c));
+                        } else if c == '\\' {
+                            escape = true;
+                        } else {
+                            buffer.push(char::from(c));
+                        }
+                    }
+                },
             }
             c = self.reader.next();
         }
@@ -314,7 +319,9 @@ impl<'a> Tokenizer<'a> {
                     }
                 }
                 Ok('.') => {
-                    if !point { point = true; }
+                    if !point {
+                        point = true;
+                    }
                 }
                 _ => break,
             }
@@ -328,17 +335,15 @@ impl<'a> Tokenizer<'a> {
 
     fn read_char_token(&mut self) -> Result<Token, ReadError> {
         match self.reader.next() {
-            Ok(v) => {
-                match v {
-                    ':' => Ok(Token::Colon),
-                    ',' => Ok(Token::Comma),
-                    '{' => Ok(Token::BeginObject),
-                    '}' => Ok(Token::EndObject),
-                    '[' => Ok(Token::BeginArray),
-                    ']' => Ok(Token::EndArray),
-                    c => Err(ReadError::IllegalChar(c))
-                }
-            }
+            Ok(v) => match v {
+                ':' => Ok(Token::Colon),
+                ',' => Ok(Token::Comma),
+                '{' => Ok(Token::BeginObject),
+                '}' => Ok(Token::EndObject),
+                '[' => Ok(Token::BeginArray),
+                ']' => Ok(Token::EndArray),
+                c => Err(ReadError::IllegalChar(c)),
+            },
             Err(e) => Err(e),
         }
     }
@@ -348,7 +353,9 @@ impl<'a> Tokenizer<'a> {
         const FALSE: &str = "false";
 
         let f = self.reader.peek();
-        if f.is_err() { return Err(f.err().unwrap()); }
+        if f.is_err() {
+            return Err(f.err().unwrap());
+        }
 
         if f.unwrap() == 't' {
             if self.full_match(TRUE.chars()) {
@@ -375,7 +382,9 @@ impl<'a> Tokenizer<'a> {
         for c in str {
             match self.reader.next() {
                 Ok(v) => {
-                    if v != c { return false; }
+                    if v != c {
+                        return false;
+                    }
                 }
                 Err(_) => return false,
             }

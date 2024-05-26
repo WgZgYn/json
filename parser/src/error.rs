@@ -1,6 +1,7 @@
 #[derive(Debug, PartialEq)]
 pub enum ReadError {
     IllegalToken,
-    IllegalChar(u8),
+    IllegalByte(u8),
+    IllegalChar(char),
     Eof,
 }

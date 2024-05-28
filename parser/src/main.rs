@@ -1,5 +1,8 @@
-use crate::token::fmt_print_tokens;
-use crate::tokenizer::Tokenizer;
+#![allow(warnings)]
+
+use std::ops::{Add, Div};
+use crate::parse::{parse_multi_thread, parse_str};
+use crate::tokenizer::{MultiTokenizer, Tokenizer};
 
 mod error;
 mod parse;
@@ -10,59 +13,28 @@ mod r#trait;
 mod value;
 
 fn main() {
-    let start = std::time::Instant::now();
-    // let json = std::fs::read_to_string("/home/wzy/Documents/rust_pojects/json/data.json").unwrap();
+    // let json = std::fs::read_to_string("/home/wzy/Documents/rust_pojects/json/example.json").unwrap();// runtime file
+    let json = include_str!("/home/wzy/Documents/rust_pojects/json/generated.json"); // compile-time file
 
-    let json = r#"
-{
-    "glossary": {
-        "title": "example glossary",
-		"GlossDiv": {
-            "title": "S",
-			"GlossList": {
-                "GlossEntry": {
-                    "ID": "SGML",
-					"SortAs": "SGML",
-					"GlossTerm": "Standard Generalized Markup Language",
-					"Acronym": "SGML",
-					"Abbrev": "ISO 8879:1986",
-					"GlossDef": {
-                        "para": "A meta-markup language, used to create markup languages such as DocBook.",
-						"GlossSeeAlso": ["GML", "XML"]
-                    },
-					"GlossSee": "markup"
-                }
-            }
-        }
+    let mut sum = std::time::Duration::new(0, 0);
+    for _ in 0..25  {
+        let start = std::time::Instant::now();
+        let mut a = parse_str(json);
+        // let a = serde_json::from_str::<serde_json::Value>(json);
+        let cost = start.elapsed();
+        println!("cost: {:?}, {}", cost, a.is_ok());
+        sum += cost;
     }
-}
-"#;
+    println!("average: {:?}", sum / 25);
 
-    let mut reader = Tokenizer::new(json);
-    reader.read_tokens();
-    // fmt_print_tokens(&reader.tokens);
-    println!("\ncost: {:?}", start.elapsed());
-    let result = reader.parse();
-    println!("{}", result.unwrap());
 
-    // let sub = HashMap::from([
-    //     ("sub".to_string(), Value::Null),
-    //     (
-    //         "arr".to_string(),
-    //         Value::JsonArray(
-    //             vec![1., 2., 3.]
-    //                 .into_iter()
-    //                 .map(|v| Value::Number(v))
-    //                 .collect(),
-    //         ),
-    //     ),
-    // ]);
-    // let mp = HashMap::from([
-    //     ("key".to_string(), Value::String("123".to_string())),
-    //     ("val".to_string(), Value::Boolean(false)),
-    //     ("inner".to_string(), Value::JsonObject(sub)),
-    // ]);
-    // let json = Value::JsonObject(mp);
-    //
-    // println!("{:#?}", json);
+    // let start = std::time::Instant::now();
+    // let mut b = parse_multi_thread(json);
+    // println!("cost: {:?}", start.elapsed());
+
+    // for i in 0..69 {
+    // dbg!(&a.tokens[i], &v[i]);
+    // }
+
+    // assert_eq!(a, b);
 }

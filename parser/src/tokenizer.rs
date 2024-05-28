@@ -1,10 +1,11 @@
-#![allow(unused)]
-
 use crate::error::ReadError;
 use crate::r#trait::Reader;
 use crate::reader::{ByteReader, CharReader};
 use crate::token::Token;
 use std::str::Chars;
+use std::sync::{Arc, Mutex};
+
+// TODO: make it multiple thread to handle
 
 pub struct ByteTokenizer<'a> {
     reader: ByteReader<'a>,
@@ -19,22 +20,25 @@ impl<'a> ByteTokenizer<'a> {
         }
     }
     pub fn read_token(&mut self) -> Result<Token, ReadError> {
-        let char = self.reader.peek();
+        let mut char = self.reader.peek();
+        loop {
+            match char {
+                Ok(v) if v.is_ascii_whitespace() => {
+                    let _ = self.reader.next();
+                    char = self.reader.peek();
+                    continue;
+                }
+                _ => break,
+            }
+        }
         match char {
             Ok(v) => match v {
                 b'{' | b'}' | b':' | b',' | b'[' | b']' => self.read_char_token(),
                 b'"' => self.read_string(),
                 b'n' => self.read_null(),
                 b't' | b'f' => self.read_boolean(),
-                c if (c <= b'9' && c >= b'0') || c == b'-' => self.read_number(),
-                c => {
-                    let _ = self.reader.next();
-                    if c.is_ascii_whitespace() {
-                        Ok(Token::WhiteSpace)
-                    } else {
-                        Err(ReadError::IllegalByte(c))
-                    }
-                }
+                c if c.is_ascii_digit() || c == b'-' => self.read_number(),
+                c => Err(ReadError::IllegalByte(c)),
             },
             Err(ReadError::Eof) => Ok(Token::Eof),
             Err(e) => Err(e),
@@ -153,7 +157,7 @@ impl<'a> ByteTokenizer<'a> {
         }
     }
 
-    pub fn read_boolean(&mut self) -> Result<Token, ReadError> {
+    fn read_boolean(&mut self) -> Result<Token, ReadError> {
         const TRUE: &[u8; 4] = b"true";
         const FALSE: &[u8; 5] = b"false";
 
@@ -212,22 +216,30 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn read_token(&mut self) -> Result<Token, ReadError> {
-        let char = self.reader.peek();
+        let mut char = self.reader.peek();
+        loop {
+            match char {
+                Ok(v) if v.is_ascii_whitespace() => {
+                    let _ = self.reader.next();
+                    char = self.reader.peek();
+                    continue;
+                }
+                _ => break,
+            }
+        }
         match char {
             Ok(v) => match v {
-                '{' | '}' | ':' | ',' | '[' | ']' => self.read_char_token(),
+                '{' => { let _ = self.reader.next(); Ok(Token::BeginObject) },
+                '}' => { let _ = self.reader.next(); Ok(Token::EndObject) },
+                '[' => { let _ = self.reader.next(); Ok(Token::BeginArray) },
+                ']' => { let _ = self.reader.next(); Ok(Token::EndArray) },
+                ':' => { let _ = self.reader.next(); Ok(Token::Colon) },
+                ',' => { let _ = self.reader.next(); Ok(Token::Comma) },
                 '"' => self.read_string(),
                 'n' => self.read_null(),
                 't' | 'f' => self.read_boolean(),
-                c if (c <= '9' && c >= '0') || c == '-' => self.read_number(),
-                c => {
-                    let _ = self.reader.next();
-                    if c.is_ascii_whitespace() {
-                        Ok(Token::WhiteSpace)
-                    } else {
-                        Err(ReadError::IllegalChar(c))
-                    }
-                }
+                c if c.is_ascii_digit() || c == '-' => self.read_number(),
+                c => Err(ReadError::IllegalChar(c)),
             },
             Err(ReadError::Eof) => Ok(Token::Eof),
             Err(e) => Err(e),
@@ -236,20 +248,17 @@ impl<'a> Tokenizer<'a> {
 
     pub fn read_tokens(&mut self) {
         let mut result = self.read_token();
-        while result != Ok(Token::Eof) && result != Err(ReadError::Eof) {
-            if result != Ok(Token::WhiteSpace) {
-                self.tokens.push(result.unwrap());
-            }
+        while result.is_ok() && result != Ok(Token::Eof) {
+            self.tokens.push(result.unwrap());
             result = self.read_token();
         }
     }
 
     fn read_string(&mut self) -> Result<Token, ReadError> {
-        let mut buffer = String::new();
-
-        let mut start = false;
+        let mut buffer = String::with_capacity(16);
         let mut escape = false;
-        let mut c = self.reader.next();
+        let _ = self.reader.next();
+        let mut c = self.reader.peek();
 
         loop {
             match c {
@@ -257,14 +266,10 @@ impl<'a> Tokenizer<'a> {
                 Ok(v) => match v {
                     '"' => {
                         if escape {
-                            buffer.push(char::from(v));
+                            buffer.push(v);
                             escape = false;
                         } else {
-                            if !start {
-                                start = true;
-                            } else {
-                                break;
-                            }
+                            break;
                         }
                     }
                     mut c => {
@@ -275,14 +280,14 @@ impl<'a> Tokenizer<'a> {
                                 't' => c = '\t',
                                 'n' => c = '\n',
                                 'r' => c = '\r',
-                                _ => (),
+                                _ => return Err(ReadError::IllegalEscape),
                             }
                             escape = false;
-                            buffer.push(char::from(c));
+                            buffer.push(c);
                         } else if c == '\\' {
                             escape = true;
                         } else {
-                            buffer.push(char::from(c));
+                            buffer.push(c);
                         }
                     }
                 },
@@ -293,10 +298,20 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn read_number(&mut self) -> Result<Token, ReadError> {
+        enum State {
+            Integer,
+            Fraction,
+            Exponent,
+        }
+
         let mut value = 0.;
         let mut sign = 1.;
-        let mut point = false;
         let mut rate = 0.1;
+
+        let mut state = State::Integer;
+
+        let mut exponent_sign = 1_i32;
+        let mut exponent_value = 0;
         let mut c = self.reader.peek();
 
         if let Ok(v) = c {
@@ -310,17 +325,37 @@ impl<'a> Tokenizer<'a> {
         loop {
             match c {
                 Err(_) => break,
-                Ok(v @ '0'..='9') => {
-                    if !point {
-                        value = value * 10. + (v as u32 - '0' as u32) as f64;
-                    } else {
+                Ok(v @ '0'..='9') => match state {
+                    State::Integer => value = value * 10. + (v as u32 - '0' as u32) as f64,
+                    State::Fraction => {
                         value += rate * (v as u32 - '0' as u32) as f64;
                         rate *= 0.1;
                     }
-                }
+                    State::Exponent => {
+                        exponent_value = exponent_value * 10 + (v as i32 - '0' as i32)
+                    }
+                },
                 Ok('.') => {
-                    if !point {
-                        point = true;
+                    if let State::Integer = state {
+                        state = State::Fraction;
+                    } else {
+                        return Err(ReadError::IllegalToken);
+                    }
+                }
+                Ok('e' | 'E') => {
+                    if let State::Exponent = state {
+                        return Err(ReadError::IllegalToken);
+                    }
+                    state = State::Exponent;
+                    let _ = self.reader.next();
+                    if let Ok(next) = self.reader.peek() {
+                        if next == '-' || next == '+' {
+                            if next == '-' {
+                                exponent_sign = -1;
+                            }
+                        } else {
+                            continue;
+                        }
                     }
                 }
                 _ => break,
@@ -330,22 +365,9 @@ impl<'a> Tokenizer<'a> {
             c = self.reader.peek();
         }
 
-        Ok(Token::Number(value * sign))
-    }
-
-    fn read_char_token(&mut self) -> Result<Token, ReadError> {
-        match self.reader.next() {
-            Ok(v) => match v {
-                ':' => Ok(Token::Colon),
-                ',' => Ok(Token::Comma),
-                '{' => Ok(Token::BeginObject),
-                '}' => Ok(Token::EndObject),
-                '[' => Ok(Token::BeginArray),
-                ']' => Ok(Token::EndArray),
-                c => Err(ReadError::IllegalChar(c)),
-            },
-            Err(e) => Err(e),
-        }
+        Ok(Token::Number(
+            value * sign * 10f64.powi(exponent_value * exponent_sign),
+        ))
     }
 
     pub fn read_boolean(&mut self) -> Result<Token, ReadError> {
@@ -390,5 +412,39 @@ impl<'a> Tokenizer<'a> {
             }
         }
         true
+    }
+}
+
+pub struct MultiTokenizer<'a> {
+    data: &'a str,
+}
+
+impl<'a> MultiTokenizer<'a> {
+    pub fn new(data: &'a str) -> Self {
+        Self { data }
+    }
+    pub fn read_tokens(&mut self) -> Vec<Token> {
+        let mut result = Vec::new();
+        std::thread::scope(|scope| {
+            let mut handles = Vec::new();
+            for (i, v) in self.data.split('}').enumerate() {
+                let handle = scope.spawn(move || {
+                    let v = {
+                        let mut t = Tokenizer::new(v);
+                        if i > 0 {
+                            t.tokens.push(Token::EndObject);
+                        }
+                        t.read_tokens();
+                        t.tokens
+                    };
+                    v
+                });
+                handles.push(handle);
+            }
+            for handle in handles {
+                result.extend(handle.join().unwrap());
+            }
+        });
+        result
     }
 }

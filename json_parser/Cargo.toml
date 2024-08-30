@@ -1,0 +1,10 @@
+[package]
+name = "json_parser"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rayon = "1.10.0"
+serde_json = "1.0.117"
+
+

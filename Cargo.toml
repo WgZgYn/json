@@ -1,3 +1,7 @@
 [workspace]
-members = ["parser"]
+members = ["json_parser"]
 resolver = "2"
+
+[profile.release-lto]
+inherits = "release"
+lto = true

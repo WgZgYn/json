@@ -2,7 +2,7 @@ use crate::error::ReadError;
 use crate::r#trait::Reader;
 use crate::token::Token;
 use crate::value::Value;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 pub struct TokenReader<'a> {
     buffer: &'a [Token],

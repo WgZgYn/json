@@ -1,5 +1,5 @@
 use crate::error::ReadError;
-use crate::r#trait::{JsonHandler, StreamToken, Tokenizer};
+use crate::r#trait::{JsonHandler, StreamToken};
 use crate::reader::ByteReader;
 use crate::token::Token;
 

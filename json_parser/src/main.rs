@@ -1,5 +1,5 @@
 use json_parser::*;
-use parse::{parse_str, parse_str_stream_char};
+use parse::parse_str;
 
 
 fn main() {

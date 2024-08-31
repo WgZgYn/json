@@ -1,8 +1,7 @@
 use crate::error::ReadError;
 use crate::r#trait::{TokenHandler, Tokenizer};
 use crate::token::Token;
-use crate::value::Value;
-use std::collections::BTreeMap;
+use crate::value::{Map, Value};
 
 pub struct TokenOwner {
     buffer: Vec<Token>,
@@ -92,7 +91,7 @@ impl TokenOwner {
         match start {
             Ok(Token::BeginObject) => {
                 let mut state = NextRead::PairOrEnd;
-                let mut value: BTreeMap<String, Value> = BTreeMap::new();
+                let mut value: Map = Map::new();
                 loop {
                     let temp = self.peek();
                     match (temp, &state) {

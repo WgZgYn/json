@@ -1,9 +1,8 @@
 use crate::error::ReadError;
 use crate::r#trait::{StreamToken, TokenHandler};
 use crate::token::Token;
-use crate::value::Value;
-use std::collections::BTreeMap;
 use crate::tokenizer::{ByteTokenizer, CharTokenizer};
+use crate::value::{Map, Value};
 
 pub struct TokenStream<T: StreamToken> {
     iter: T,
@@ -106,7 +105,7 @@ impl<T: StreamToken> TokenStream<T> {
         match start {
             Ok(Token::BeginObject) => {
                 let mut state = NextRead::PairOrEnd;
-                let mut value: BTreeMap<String, Value> = BTreeMap::new();
+                let mut value = Map::new();
                 loop {
                     let temp = self.peek();
                     match (temp, &state) {

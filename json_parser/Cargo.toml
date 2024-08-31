@@ -6,5 +6,5 @@ edition = "2021"
 [dependencies]
 rayon = "1.10.0"
 serde_json = "1.0.117"
-
+indexmap = "2.4.0"
 

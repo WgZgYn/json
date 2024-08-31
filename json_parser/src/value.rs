@@ -1,10 +1,13 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Index, IndexMut};
 
+pub type Map = indexmap::IndexMap<String, Value>;
+
 // #[derive(Debug)]
+#[derive(Clone)]
 pub enum Value {
-    JsonObject(BTreeMap<String, Value>),
+    JsonObject(Map),
     JsonArray(Vec<Value>),
     String(String),
     Boolean(bool),

@@ -4,7 +4,13 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    /// cmd >
+    /// cargo test --release -- --nocapture
+    ///
+    ///
+
     use std::collections::HashMap;
+    use serde_json::json;
     use json_parser::parse::parse_str;
     use json_parser::{parser, tokenizer};
 
@@ -31,17 +37,33 @@ mod tests {
             let start = std::time::Instant::now();
             let a = parse_str::<parser::TokenStream<_>, tokenizer::CharTokenizer, &str>(JSON);
             let cost = start.elapsed();
-            println!("serde_json cost: {:?}, {}", cost, a.is_ok());
+            println!("parse_json cost: {:?}, {}", cost, a.is_ok());
             sum0 += cost;
 
             let start = std::time::Instant::now();
             let a = serde_json::from_str::<serde_json::Value>(JSON);
             let cost = start.elapsed();
-            println!("parse_json cost: {:?}, {}", cost, a.is_ok());
+            println!("serde_json cost: {:?}, {}", cost, a.is_ok());
             sum1 += cost;
         }
 
         println!("average: {:?}", sum0 / 50);
         println!("average: {:?}", sum1 / 50);
+    }
+
+    #[test]
+    fn test_json_macro() {
+        let v = json!(
+            {
+                "a": 123,
+                "array": [1, 2, 3],
+                "bool": true,
+                "object": {
+                    "c": 45.156
+                }
+            }
+        );
+
+        println!("{}", serde_json::to_string_pretty(&v).unwrap());
     }
 }

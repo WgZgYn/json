@@ -1,3 +1,8 @@
+#![feature(test)]
+
+
+extern crate test;
+
 fn main() {
     //  TODO: refactor the value fmt, remove the tail comma
 }
@@ -10,11 +15,13 @@ mod tests {
     ///
 
     use std::collections::HashMap;
+    use std::process::Termination;
     use serde_json::json;
-    use json_parser::parse::parse_str;
+    use json_parser::parse::{from_str, parse_str};
     use json_parser::{parser, tokenizer};
 
     const JSON: &'static str = include_str!("../../example.json"); // compile-time file
+    const LARGE: &'static str = include_str!("../../data.json");
     #[test]
     fn index_map() {
         // the index_map is ordered it by the order by the index it inserted.
@@ -28,27 +35,36 @@ mod tests {
         println!("{:#?}", mp);
     }
 
-    #[test]
-    fn time_bench() {
-        let mut sum0 = std::time::Duration::ZERO;
-        let mut sum1 = std::time::Duration::ZERO;
 
-        for _ in 0..50 {
-            let start = std::time::Instant::now();
-            let a = parse_str::<parser::TokenStream<_>, tokenizer::CharTokenizer, &str>(JSON);
-            let cost = start.elapsed();
-            println!("parse_json cost: {:?}, {}", cost, a.is_ok());
-            sum0 += cost;
+    use super::*;
+    use test::Bencher;
 
-            let start = std::time::Instant::now();
-            let a = serde_json::from_str::<serde_json::Value>(JSON);
-            let cost = start.elapsed();
-            println!("serde_json cost: {:?}, {}", cost, a.is_ok());
-            sum1 += cost;
-        }
-
-        println!("average: {:?}", sum0 / 50);
-        println!("average: {:?}", sum1 / 50);
+    #[bench]
+    fn time_bench_impl(b: &mut Bencher) -> impl Termination {
+        // let mut sum0 = std::time::Duration::ZERO;
+        // let mut sum1 = std::time::Duration::ZERO;
+        //
+        // for _ in 0..50 {
+        //     let start = std::time::Instant::now();
+        //     let a = from_str(JSON);
+        //     let cost = start.elapsed();
+        //     println!("parse_json cost: {:?}, {}", cost, a.is_ok());
+        //     sum0 += cost;
+        //
+        //     let start = std::time::Instant::now();
+        //     let a = serde_json::from_str::<serde_json::Value>(JSON);
+        //     let cost = start.elapsed();
+        //     println!("serde_json cost: {:?}, {}", cost, a.is_ok());
+        //     sum1 += cost;
+        // }
+        //
+        // println!("average: {:?}", sum0 / 50);
+        // println!("average: {:?}", sum1 / 50);
+        b.iter(|| from_str(LARGE));
+    }
+    #[bench]
+    fn time_bench_serde(b: &mut Bencher) {
+        b.iter(|| serde_json::from_str::<serde_json::Value>(LARGE));
     }
 
     #[test]

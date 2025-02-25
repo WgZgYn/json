@@ -1,5 +1,5 @@
 use crate::error::ReadError;
-use crate::r#trait::{JsonHandler, Reader, StreamToken};
+use crate::r#trait::{DataHandler, Reader, StreamTokenizer};
 use crate::reader::CharReader;
 use crate::token::Token;
 use std::str::Chars;
@@ -8,7 +8,7 @@ pub struct CharTokenizer<'a> {
     reader: CharReader<'a>,
 }
 
-impl<'a> StreamToken for CharTokenizer<'a> {
+impl<'a> StreamTokenizer for CharTokenizer<'a> {
     fn read_token(&mut self) -> Result<Token, ReadError> {
         let mut char = self.reader.peek();
         loop {
@@ -58,8 +58,8 @@ impl<'a> StreamToken for CharTokenizer<'a> {
         }
     }
 }
-impl<'a> JsonHandler<&'a str> for CharTokenizer<'a> {
-    fn new(buffer: &'a str) -> Self {
+impl<'a> DataHandler<&'a str> for CharTokenizer<'a> {
+    fn handle(buffer: &'a str) -> Self {
         Self {
             reader: CharReader::new(buffer.chars()),
         }

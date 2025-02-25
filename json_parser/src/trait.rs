@@ -12,11 +12,11 @@ pub trait Tokenizer {
     fn read_tokens(&mut self) -> Vec<Token>;
 }
 
-pub trait StreamToken {
+pub trait StreamTokenizer {
     fn read_token(&mut self) -> Result<Token, ReadError>;
 }
 
-impl<T: StreamToken> Tokenizer for T {
+impl<T: StreamTokenizer> Tokenizer for T {
     fn read_tokens(&mut self) -> Vec<Token> {
         let mut tokens = Vec::new();
         let mut result = self.read_token();
@@ -29,17 +29,17 @@ impl<T: StreamToken> Tokenizer for T {
 }
 
 pub trait TokenHandler<T: Tokenizer> {
-    fn new(tokenizer: T) -> Self;
+    fn with_tokenizer(tokenizer: T) -> Self;
     fn parse(&mut self) -> Result<Value, ReadError>;
 }
 
-pub trait JsonHandler<T> {
-    fn new(j: T) -> Self;
+pub trait DataHandler<T> {
+    fn handle(j: T) -> Self;
 }
 
-trait JsonBuild {
+trait JsonBuilder {
     fn build_value(&mut self) -> Result<Value, ReadError>;
     fn build_array(&mut self) -> Result<Value, ReadError>;
     fn build_object(&mut self) -> Result<Value, ReadError>;
-    fn build_pair(&mut self) -> Result<Value, ReadError>;
+    fn build_pair(&mut self) -> Result<(String, Value), ReadError>;
 }

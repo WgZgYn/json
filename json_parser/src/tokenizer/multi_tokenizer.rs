@@ -1,5 +1,5 @@
 use crate::error::ReadError;
-use crate::r#trait::{JsonHandler, Tokenizer};
+use crate::r#trait::{DataHandler, Tokenizer};
 use crate::token::Token;
 use crate::tokenizer::char_tokenizer::CharTokenizer;
 use rayon::prelude::*;
@@ -99,14 +99,14 @@ impl<'a> Tokenizer for MultiTokenizer<'a> {
         // let v = vec![(0, a), (a + 1, b), (b + 1, c), (c + 1, self.data.len() - 1)];
 
         v.into_par_iter()
-            .map(|v| CharTokenizer::new(&self.data[v.0..=v.1]).read_tokens())
+            .map(|v| CharTokenizer::handle(&self.data[v.0..=v.1]).read_tokens())
             .flatten()
             .collect()
     }
 }
 
-impl<'a> JsonHandler<&'a str> for MultiTokenizer<'a> {
-    fn new(data: &'a str) -> Self {
+impl<'a> DataHandler<&'a str> for MultiTokenizer<'a> {
+    fn handle(data: &'a str) -> Self {
         Self { data }
     }
 }

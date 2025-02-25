@@ -1,5 +1,5 @@
 use crate::error::ReadError;
-use crate::r#trait::{JsonHandler, StreamToken};
+use crate::r#trait::{DataHandler, StreamTokenizer};
 use crate::reader::ByteReader;
 use crate::token::Token;
 
@@ -7,7 +7,7 @@ pub struct ByteTokenizer<'a> {
     reader: ByteReader<'a>,
 }
 
-impl<'a> StreamToken for ByteTokenizer<'a> {
+impl<'a> StreamTokenizer for ByteTokenizer<'a> {
     fn read_token(&mut self) -> Result<Token, ReadError> {
         let mut char = self.reader.peek();
         loop {
@@ -34,8 +34,8 @@ impl<'a> StreamToken for ByteTokenizer<'a> {
         }
     }
 }
-impl<'a> JsonHandler<&'a str> for ByteTokenizer<'a> {
-    fn new(buffer: &'a str) -> Self {
+impl<'a> DataHandler<&'a str> for ByteTokenizer<'a> {
+    fn handle(buffer: &'a str) -> Self {
         Self {
             reader: ByteReader::new(buffer.as_bytes()),
         }

@@ -1,14 +1,14 @@
 use crate::error::ReadError;
-use crate::r#trait::{StreamToken, TokenHandler};
+use crate::r#trait::StreamTokenizer;
 use crate::token::Token;
 use crate::value::{Map, Value};
 
-pub struct TokenStream1<T: StreamToken> {
+pub struct TokenStream1<T: StreamTokenizer> {
     iter: T,
     peeked: Option<Token>,
 }
 
-impl<T: StreamToken> TokenStream1<T> {
+impl<T: StreamTokenizer> TokenStream1<T> {
     fn peek(&mut self) -> Result<&Token, ReadError> {
         match self.peeked {
             Some(ref v) => Ok(v),
@@ -27,7 +27,7 @@ impl<T: StreamToken> TokenStream1<T> {
     }
 }
 
-impl<T: StreamToken> TokenStream1<T> {
+impl<T: StreamTokenizer> TokenStream1<T> {
     pub fn has_next(&mut self) -> bool {
         self.peek() != Err(ReadError::Eof) && self.peek() != Ok(&Token::Eof)
     }

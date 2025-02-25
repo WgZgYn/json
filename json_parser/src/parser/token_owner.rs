@@ -9,7 +9,7 @@ pub struct TokenOwner {
 }
 
 impl<T: Tokenizer> TokenHandler<T> for TokenOwner {
-    fn new(mut tokenizer: T) -> Self {
+    fn with_tokenizer(mut tokenizer: T) -> Self {
         Self {
             buffer: tokenizer.read_tokens(),
             pos: 0,
@@ -45,10 +45,10 @@ impl TokenOwner {
 
     fn build_pair(&mut self) -> Result<(String, Value), ReadError> {
         let Token::String(key) = self.next().unwrap() else {
-            panic!("can't be reached")
+            panic!("programming error, expected a string");
         };
-        let Token::Colon = self.next()? else {
-            panic!("expected a colon")
+        let Token::Colon = self.next().unwrap() else {
+            panic!("programming error, expected a colon")
         };
         match self.peek() {
             Ok(Token::BeginArray) => Ok((key, self.build_array().expect("a JsonArray"))),

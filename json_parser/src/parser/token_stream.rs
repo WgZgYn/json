@@ -1,18 +1,18 @@
 use crate::error::ReadError;
-use crate::r#trait::{StreamToken, TokenHandler};
+use crate::r#trait::{StreamTokenizer, TokenHandler};
 use crate::token::Token;
 use crate::tokenizer::{ByteTokenizer, CharTokenizer};
 use crate::value::{Map, Value};
 
-pub struct TokenStream<T: StreamToken> {
-    iter: T,
+pub struct TokenStream<T: StreamTokenizer> {
+    tokenizer: T,
     peeked: Option<Token>,
 }
 
 impl<'a> TokenHandler<CharTokenizer<'a>> for TokenStream<CharTokenizer<'a>> {
-    fn new(t: CharTokenizer<'a>) -> TokenStream<CharTokenizer<'a>> {
+    fn with_tokenizer(t: CharTokenizer<'a>) -> TokenStream<CharTokenizer<'a>> {
         Self {
-            iter: t,
+            tokenizer: t,
             peeked: None,
         }
     }
@@ -23,8 +23,8 @@ impl<'a> TokenHandler<CharTokenizer<'a>> for TokenStream<CharTokenizer<'a>> {
 }
 
 impl<'a> TokenHandler<ByteTokenizer<'a>> for TokenStream<ByteTokenizer<'a>> {
-    fn new(tokenizer: ByteTokenizer<'a>) -> Self {
-        Self { iter: tokenizer, peeked: None }
+    fn with_tokenizer(tokenizer: ByteTokenizer<'a>) -> Self {
+        Self { tokenizer: tokenizer, peeked: None }
     }
 
     fn parse(&mut self) -> Result<Value, ReadError> {
@@ -32,12 +32,12 @@ impl<'a> TokenHandler<ByteTokenizer<'a>> for TokenStream<ByteTokenizer<'a>> {
     }
 }
 
-impl<T: StreamToken> TokenStream<T> {
+impl<T: StreamTokenizer> TokenStream<T> {
     fn peek(&mut self) -> Result<&Token, ReadError> {
         match self.peeked {
             Some(ref v) => Ok(v),
             None => {
-                self.peeked = self.iter.read_token().ok();
+                self.peeked = self.tokenizer.read_token().ok();
                 self.peeked.as_ref().ok_or(ReadError::Eof)
             }
         }
@@ -45,13 +45,13 @@ impl<T: StreamToken> TokenStream<T> {
 
     fn next(&mut self) -> Result<Token, ReadError> {
         match self.peeked {
-            None => self.iter.read_token(),
+            None => self.tokenizer.read_token(),
             Some(_) => Ok(self.peeked.take().unwrap()),
         }
     }
 }
 
-impl<T: StreamToken> TokenStream<T> {
+impl<T: StreamTokenizer> TokenStream<T> {
     pub fn has_next(&mut self) -> bool {
         self.peek() != Err(ReadError::Eof) && self.peek() != Ok(&Token::Eof)
     }
